@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: reservas_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./servicio_reservas/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  servicio_whatsapp:
+    build: ./servicio_whatsapp
+    ports:
+      - "3001:3001"
+    environment:
+      EVOLUTION_API_URL: https://automatica-evolution-api.ol1ump.easypanel.host/message/sendText/Automatica%20Bot
+      EVOLUTION_API_TOKEN: your_token_here
+      PORT: 3001
+
+  servicio_reservas:
+    build: ./servicio_reservas
+    ports:
+      - "3000:3000"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: password
+      DB_NAME: reservas_db
+      PORT: 3000
+      WHATSAPP_SERVICE_URL: http://servicio_whatsapp:3001
+      WHATSAPP_RECIPIENT: +59165811806
+    depends_on:
+      db:
+        condition: service_healthy
+      servicio_whatsapp:
+        condition: service_started
+
+volumes:
+  postgres_data:
